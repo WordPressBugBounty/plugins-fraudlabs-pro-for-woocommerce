@@ -1,0 +1,44 @@
+[
+    {
+        "name": "fraudlabspro/fraudlabspro-php",
+        "version": "3.0.1",
+        "version_normalized": "3.0.1.0",
+        "source": {
+            "type": "git",
+            "url": "https://github.com/fraudlabspro/fraudlabspro-php.git",
+            "reference": "694be2b083562e3bf5cecf835552c1ffebc7ce72"
+        },
+        "dist": {
+            "type": "zip",
+            "url": "https://api.github.com/repos/fraudlabspro/fraudlabspro-php/zipball/694be2b083562e3bf5cecf835552c1ffebc7ce72",
+            "reference": "694be2b083562e3bf5cecf835552c1ffebc7ce72",
+            "shasum": ""
+        },
+        "require": {
+            "ext-curl": "*",
+            "php": ">=5.4.0"
+        },
+        "require-dev": {
+            "phpunit/phpunit": "^9"
+        },
+        "time": "2020-12-15T08:17:22+00:00",
+        "type": "library",
+        "installation-source": "dist",
+        "autoload": {
+            "psr-4": {
+                "FraudLabsPro\\": "src/"
+            }
+        },
+        "notification-url": "https://packagist.org/downloads/",
+        "license": [
+            "MIT"
+        ],
+        "authors": [
+            {
+                "name": "FraudLabs Pro",
+                "homepage": "https://www.fraudlabspro.com"
+            }
+        ],
+        "description": "FraudLabs Pro PHP SDK to help merchants to detect fraud order and therefore reduce chargebacks."
+    }
+]
