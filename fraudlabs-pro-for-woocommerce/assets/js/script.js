@@ -22,12 +22,19 @@ jQuery(document).ready(function($){
 			$('#fraud_message').prop('disabled', true);
 			$('#fraud_message_tr').hide();
 			$('#db_err_status').prop('disabled', false);
+			$("#approve_status").prop("disabled", false);
+			$("#review_status").prop("disabled", false);
 		} else {
 			$('#enable_wc_advanced_velocity').prop('disabled', false);
 			$('#enable_wc_advanced_velocity_tr').show();
 			$('#fraud_message').prop('disabled', false);
 			$('#fraud_message_tr').show();
+			$("#db_err_status").val("");
 			$('#db_err_status').prop('disabled', true);
+			$("#approve_status").val("");
+			$("#review_status").val("");
+			$("#approve_status").prop("disabled", true);
+			$("#review_status").prop("disabled", true);
 		}
 	});
 
@@ -36,10 +43,17 @@ jQuery(document).ready(function($){
 		$('#enable_wc_advanced_velocity_tr').show();
 		$('#fraud_message').prop('disabled', false);
 		$('#fraud_message_tr').show();
+		$("#db_err_status").val("");
 		$('#db_err_status').prop('disabled', true);
+		$("#approve_status").val("");
+		$("#review_status").val("");
+		$("#approve_status").prop("disabled", true);
+		$("#review_status").prop("disabled", true);
 	}
 
 	if ($('#validation_sequence').val() == 'after') {
+		$("#approve_status").prop("disabled", false);
+		$("#review_status").prop("disabled", false);
 		$('#db_err_status').prop('disabled', false);
 		$('#enable_wc_advanced_velocity_tr').hide();
 		$('#fraud_message_tr').hide();

@@ -75,6 +75,7 @@ class WC_FraudLabs_Pro {
 		add_action( 'wp_ajax_fraudlabspro_woocommerce_submit_feedback', array( $this, 'submit_feedback' ) );
 		add_action( 'wp_ajax_fraudlabspro_woocommerce_validate_api_key', array( $this, 'validate_api_key' ) );
 		add_action( 'wp_loaded', array( $this, 'wc_flp_callback' ) );
+		add_action( 'wp_footer', array( $this, 'javascript_agent' ) );
 
 		// Hooks for WooCommerce
 		add_filter( 'manage_shop_order_posts_columns', array( $this, 'add_column' ), 11 );
@@ -82,8 +83,7 @@ class WC_FraudLabs_Pro {
 		add_filter( 'manage_woocommerce_page_wc-orders_columns', array( $this, 'add_column_hpos' ), 11 );
 		add_action( 'woocommerce_shop_order_list_table_custom_column', array( $this, 'render_column_hpos' ), 10, 2 );
 		add_action( 'woocommerce_admin_order_data_after_billing_address', array( $this, 'render_fraud_report' ) );
-		add_action( 'woocommerce_after_checkout_form', array( $this, 'javascript_agent' ) );
-		add_action( 'woocommerce_checkout_order_processed', array( $this, 'checkout_order_processed' ), 99, 3 );
+		add_action( 'woocommerce_store_api_checkout_order_processed', array( $this, 'store_checkout_order_processed' ), 99, 3 );
 		add_action( 'woocommerce_order_status_changed', array( $this, 'order_status_changed' ), 99, 3 );
 		add_action( 'woocommerce_order_status_completed', array( $this, 'order_status_completed' ) );
 		add_action( 'woocommerce_order_status_cancelled', array( $this, 'order_status_cancelled' ) );
@@ -95,7 +95,7 @@ class WC_FraudLabs_Pro {
 	/**
 	 * Validate the order before payment gateway.
 	 */
-	public function checkout_order_processed( $order_id, $posted_data, $order ) {
+	public function store_checkout_order_processed( $order ) {
 		// Collect IP information before the payment gateway
 		$ip_x_sucuri_before = $ip_incap_before = $ip_http_cf_connecting_before = $ip_x_forwarded_for_before = $ip_x_real_before = $ip_http_client_before = $ip_http_forwarded_before = $ip_x_forwarded_before ='::1';
 
@@ -153,19 +153,23 @@ class WC_FraudLabs_Pro {
 			'flp_device_before'				=> $flp_device_before,
 		];
 
-		add_post_meta( $order_id, '_fraudlabspro_ip_before', $flpIP );
-		$table_name = $this->create_flpwc_table();
-		$this->add_flpwc_data($table_name, $order_id, '_fraudlabspro_ip_before', $flpIP);
-
-		if ( $this->validation_sequence != 'before' ) {
+		if ( $this->validation_sequence !== 'before' ) {
 			return;
 		}
 
+		if ( ! $order instanceof \WC_Order ) {
+			return;
+		}
+
+		$this->order = $order;
+		$order_id = $this->order->get_id();
+		add_post_meta( $order_id, '_fraudlabspro_ip_before', $flpIP );
+		$table_name = $this->create_flpwc_table();
+		$this->add_flpwc_data($table_name, $order_id, '_fraudlabspro_ip_before', $flpIP);
 		$this->write_debug_log( 'Checkout order processed for Order ' . $order_id . '.');
-		$this->order = wc_get_order( $order_id );
 
 		if ( $this->validate_order() === false ) {
-			wc_add_notice( ( !empty( $this->fraud_message ) ) ? $this->fraud_message : 'This order ' . $this->order->get_id() . ' failed our fraud validation. Please contact us for more details.', 'error' );
+			wc_add_notice( ( !empty( $this->fraud_message ) ) ? $this->fraud_message : 'This order ' . $order_id . ' failed our fraud validation. Please contact us for more details.', 'error' );
 
 			global $woocommerce;
 			$woocommerce->cart->empty_cart();
@@ -198,13 +202,15 @@ class WC_FraudLabs_Pro {
 				$result = $this->get_flpwc_data($table_name, $order_id, '_fraudlabspro');
 			}
 
-			$idx = count( $result ) - 1;
-			if ( isset( $result[$idx] ) ) {
-				if ( !is_array( $result[$idx] ) && !is_object( $result[$idx] ) ) {
-					$row = json_decode( $result[$idx] );
+			if (count($result) > 0) {
+				$idx = count( $result ) - 1;
+				if ( isset( $result[$idx] ) ) {
+					if ( !is_array( $result[$idx] ) && !is_object( $result[$idx] ) ) {
+						$row = json_decode( $result[$idx] );
+					}
+				} else {
+					$row = $result[$idx];
 				}
-			} else {
-				$row = $result[$idx];
 			}
 
 			if (isset($row)) {
@@ -649,7 +655,7 @@ class WC_FraudLabs_Pro {
 			'validation_sequence'			=> $this->validation_sequence,
 			'advanced_velocity_screening'	=> ( get_option('wc_settings_woocommerce-fraudlabs-pro_flp_advanced_velocity') == "yes" ) ? 'enabled' : 'disabled',
 			'source'						=> 'woocommerce',
-			'source_version'				=> '2.23.2',
+			'source_version'				=> '2.23.3',
 			'items'							=> $item_sku,
 			'cc_key'						=> $cc_key,
 			'username'						=> $current_username,
@@ -1060,6 +1066,9 @@ class WC_FraudLabs_Pro {
 				}
 
 				if ( empty( $form_status ) ) {
+					if ($validation_sequence == "before") {
+						$approve_status = $review_status = $db_err_status = "";
+					}
 					$this->update_setting( 'validation_sequence', $validation_sequence );
 					$this->update_setting( 'flp_advanced_velocity', $enable_wc_fraudlabspro_advanced_velocity );
 					$this->update_setting( 'approve_status', $approve_status );
@@ -1511,7 +1520,8 @@ class WC_FraudLabs_Pro {
 			// Use plan API to get license information
 			$request = wp_remote_get( 'https://api.fraudlabspro.com/v2/plan/result?' . http_build_query( array(
 				'key'		=> $this->api_key,
-				'format'	=> 'json'
+				'format'	=> 'json',
+				'timestamp'	=> time()
 			) ) );
 
 			if ( ! is_wp_error( $request ) ) {
@@ -1743,7 +1753,9 @@ class WC_FraudLabs_Pro {
 	 * Javascript agent.
 	 */
 	public function javascript_agent() {
+		if (is_checkout()) {
 		echo '<script>!function(){function t(){var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.src="https://cdn.fraudlabspro.com/s.js";var e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(t,e)}window.attachEvent?window.attachEvent("onload",t):window.addEventListener("load",t,!1)}();</script>';
+		}
 	}
 
 
