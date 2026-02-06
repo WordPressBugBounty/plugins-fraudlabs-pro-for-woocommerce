@@ -84,7 +84,9 @@ class WC_FraudLabs_Pro {
 		add_action( 'woocommerce_shop_order_list_table_custom_column', array( $this, 'render_column_hpos' ), 10, 2 );
 		add_action( 'woocommerce_admin_order_data_after_billing_address', array( $this, 'render_fraud_report' ) );
 		add_action( 'woocommerce_store_api_checkout_order_processed', array( $this, 'store_checkout_order_processed' ), 99, 3 );
-		add_action( 'woocommerce_order_status_changed', array( $this, 'order_status_changed' ), 99, 3 );
+		add_action( 'woocommerce_after_checkout_form', array( $this, 'javascript_agent' ) );
+		add_action( 'woocommerce_checkout_order_processed', array( $this, 'checkout_order_processed' ), 99, 3 );
+		add_action( 'woocommerce_order_status_changed', array( $this, 'order_status_changed' ), 999, 3 );
 		add_action( 'woocommerce_order_status_completed', array( $this, 'order_status_completed' ) );
 		add_action( 'woocommerce_order_status_cancelled', array( $this, 'order_status_cancelled' ) );
 		add_action( 'woocommerce_pre_payment_complete', array( $this, 'pre_payment_complete' ) );
@@ -166,10 +168,99 @@ class WC_FraudLabs_Pro {
 		add_post_meta( $order_id, '_fraudlabspro_ip_before', $flpIP );
 		$table_name = $this->create_flpwc_table();
 		$this->add_flpwc_data($table_name, $order_id, '_fraudlabspro_ip_before', $flpIP);
-		$this->write_debug_log( 'Checkout order processed for Order ' . $order_id . '.');
+		$this->write_debug_log( 'Store checkout order processed for Order ' . $order_id . '.');
 
 		if ( $this->validate_order() === false ) {
 			wc_add_notice( ( !empty( $this->fraud_message ) ) ? $this->fraud_message : 'This order ' . $order_id . ' failed our fraud validation. Please contact us for more details.', 'error' );
+
+			global $woocommerce;
+			$woocommerce->cart->empty_cart();
+
+			if ( is_ajax() ) {
+				wp_send_json( array(
+					'result'   => 'success',
+					'redirect' => apply_filters( 'woocommerce_checkout_no_payment_needed_redirect', wc_get_cart_url(), $this->order ),
+				) );
+			} else {
+				wp_safe_redirect(
+					apply_filters( 'woocommerce_checkout_no_payment_needed_redirect', wc_get_cart_url(), $this->order )
+				);
+				exit;
+			}
+		}
+	}
+
+	public function checkout_order_processed( $order_id, $posted_data, $order ) {
+		// Collect IP information before the payment gateway
+		$ip_x_sucuri_before = $ip_incap_before = $ip_http_cf_connecting_before = $ip_x_forwarded_for_before = $ip_x_real_before = $ip_http_client_before = $ip_http_forwarded_before = $ip_x_forwarded_before ='::1';
+
+		if ( isset( $_SERVER['HTTP_X_SUCURI_CLIENTIP'] ) && filter_var( $_SERVER['HTTP_X_SUCURI_CLIENTIP'], FILTER_VALIDATE_IP ) ) {
+			$ip_x_sucuri_before = $_SERVER['HTTP_X_SUCURI_CLIENTIP'];
+		}
+
+		if( isset( $_SERVER['HTTP_INCAP_CLIENT_IP'] ) && filter_var( $_SERVER['HTTP_INCAP_CLIENT_IP'], FILTER_VALIDATE_IP ) ) {
+			$ip_incap_before = $_SERVER['HTTP_INCAP_CLIENT_IP'];
+		}
+
+		if( isset( $_SERVER['HTTP_CF_CONNECTING_IP'] ) && filter_var( $_SERVER['HTTP_CF_CONNECTING_IP'], FILTER_VALIDATE_IP ) ) {
+			$ip_http_cf_connecting_before = $_SERVER['HTTP_CF_CONNECTING_IP'];
+		}
+
+		if ( isset( $_SERVER['HTTP_X_REAL_IP'] ) ) {
+			$ip_x_real_before = $_SERVER['HTTP_X_REAL_IP'];
+		}
+
+		if( isset( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
+			$xip = trim(current(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])));
+
+			if (filter_var($xip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+				$ip_x_forwarded_for_before = $xip;
+			}
+		}
+
+		if( isset( $_SERVER['HTTP_CLIENT_IP'] ) && filter_var( $_SERVER['HTTP_CLIENT_IP'], FILTER_VALIDATE_IP ) ) {
+			$ip_http_client_before = $_SERVER['HTTP_CLIENT_IP'];
+		}
+
+		if( isset( $_SERVER['HTTP_FORWARDED'] ) && filter_var( $_SERVER['HTTP_FORWARDED'], FILTER_VALIDATE_IP ) ) {
+			$ip_http_forwarded_before = $_SERVER['HTTP_FORWARDED'];
+		}
+
+		if( isset( $_SERVER['HTTP_X_FORWARDED'] ) && filter_var( $_SERVER['HTTP_X_FORWARDED'], FILTER_VALIDATE_IP ) ) {
+			$ip_x_forwarded_before = $_SERVER['HTTP_X_FORWARDED'];
+		}
+
+		$ip_remote_addr_before = $_SERVER['REMOTE_ADDR'];
+		$flp_checksum_before = ( isset( $_COOKIE['flp_checksum'] ) ) ? $_COOKIE['flp_checksum'] : '';
+		$flp_device_before = ( isset( $_COOKIE['flp_device'] ) ) ? $_COOKIE['flp_device'] : '';
+
+		$flpIP = [
+			'ip_x_sucuri_before'			=> $ip_x_sucuri_before,
+			'ip_incap_before'				=> $ip_incap_before,
+			'ip_http_cf_connecting_before'	=> $ip_http_cf_connecting_before,
+			'ip_x_real_before'				=> $ip_x_real_before,
+			'ip_x_forwarded_for_before'		=> $ip_x_forwarded_for_before,
+			'ip_http_client_before'			=> $ip_http_client_before,
+			'ip_http_forwarded_before'		=> $ip_http_forwarded_before,
+			'ip_x_forwarded_before'			=> $ip_x_forwarded_before,
+			'ip_remote_addr_before'			=> $ip_remote_addr_before,
+			'flp_checksum_before'			=> $flp_checksum_before,
+			'flp_device_before'				=> $flp_device_before,
+		];
+
+		add_post_meta( $order_id, '_fraudlabspro_ip_before', $flpIP );
+		$table_name = $this->create_flpwc_table();
+		$this->add_flpwc_data($table_name, $order_id, '_fraudlabspro_ip_before', $flpIP);
+
+		if ( $this->validation_sequence != 'before' ) {
+			return;
+		}
+
+		$this->write_debug_log( 'Checkout order processed for Order ' . $order_id . '.');
+		$this->order = wc_get_order( $order_id );
+
+		if ( $this->validate_order() === false ) {
+			wc_add_notice( ( !empty( $this->fraud_message ) ) ? $this->fraud_message : 'This order ' . $this->order->get_id() . ' failed our fraud validation. Please contact us for more details.', 'error' );
 
 			global $woocommerce;
 			$woocommerce->cart->empty_cart();
@@ -655,7 +746,7 @@ class WC_FraudLabs_Pro {
 			'validation_sequence'			=> $this->validation_sequence,
 			'advanced_velocity_screening'	=> ( get_option('wc_settings_woocommerce-fraudlabs-pro_flp_advanced_velocity') == "yes" ) ? 'enabled' : 'disabled',
 			'source'						=> 'woocommerce',
-			'source_version'				=> '2.23.3',
+			'source_version'				=> '2.23.5',
 			'items'							=> $item_sku,
 			'cc_key'						=> $cc_key,
 			'username'						=> $current_username,
