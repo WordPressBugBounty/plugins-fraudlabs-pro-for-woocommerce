@@ -663,7 +663,11 @@ class WC_FraudLabs_Pro {
 		$binNo = '';
 		$binNo = get_post_meta( $this->order->get_id(), '_flp_bin_no' );
 
-		if (!$binNo) {
+		if (empty($binNo)) {
+			$binNo = $this->order->get_meta( '_flp_bin_no', false );
+		}
+
+		if (empty($binNo)) {
 			$table_name = $this->create_flpwc_table();
 			$binNo = $this->get_flpwc_data($table_name, $this->order->get_id(), '_flp_bin_no');
 		}
@@ -746,7 +750,7 @@ class WC_FraudLabs_Pro {
 			'validation_sequence'			=> $this->validation_sequence,
 			'advanced_velocity_screening'	=> ( get_option('wc_settings_woocommerce-fraudlabs-pro_flp_advanced_velocity') == "yes" ) ? 'enabled' : 'disabled',
 			'source'						=> 'woocommerce',
-			'source_version'				=> '2.23.5',
+			'source_version'				=> '2.23.6',
 			'items'							=> $item_sku,
 			'cc_key'						=> $cc_key,
 			'username'						=> $current_username,
@@ -856,6 +860,7 @@ class WC_FraudLabs_Pro {
 			'is_bin_name_match'				=> '',
 			'is_bin_phone_match'			=> '',
 			'is_bin_prepaid'				=> ($response->credit_card->is_prepaid) ? 'Y' : 'N',
+			'card_issuing_country'			=> ($response->credit_card->card_issuing_country) ?? '',
 			'is_address_ship_forward'		=> ($response->shipping_address->is_address_ship_forward) ? 'Y' : 'N',
 			'is_bill_ship_city_match'		=> ($response->shipping_address->is_bill_city_match) ? 'Y' : 'N',
 			'is_bill_ship_state_match'		=> ($response->shipping_address->is_bill_state_match) ? 'Y' : 'N',
@@ -1009,7 +1014,7 @@ class WC_FraudLabs_Pro {
 			if (!$setup_fraudlabs_pro) {
 				echo '
 				<div id="modal-step-1" class="fraudlabs-pro-modal" style="display:block">
-					<div class="fraudlabs-pro-modal-content" style="width:400px;height:320px">
+					<div class="fraudlabs-pro-modal-content">
 					<script type="text/javascript" src="https://use.fontawesome.com/30858dc40a.js"></script>
 					<button type="button" class="dismiss-button"><i class="fa fa-times-circle"></i></button>
 						<div align="center">
@@ -1030,25 +1035,29 @@ class WC_FraudLabs_Pro {
 						</div>
 
 						<form>
-							<p class="description">
-								Thank you for choosing FraudLabs Pro to protect your WooCommerce store from payment fraud.
+							<p class="description" style="padding-top: 6px;margin-bottom: 18px;">
+								Protect your WooCommerce store from payment fraud by connecting your API key below.
 							</p>
 							<p>
-								<label>Enter FraudLabs Pro API Key</label>
-								<input type="text" id="setup_flp_key" class="regular-text code" maxlength="64" style="width:100%">
+								<label for="setup_flp_key"><strong>Enter FraudLabs Pro API Key</strong></label>
+								<input type="text" id="setup_flp_key" class="regular-text code" maxlength="64" style="width:100%;margin-top:6px;padding:5px 10px;border: 1px solid #b9b9b9;">
 							</p>
-							<p class="description">
-								Don\'t have an account yet? You can sign up for a free API key at <a href="https://www.fraudlabspro.com/subscribe?id=1#woocommerce-pltwzd" target="_blank">FraudLabs Pro</a>.
-							</p>
+							<div class="help-box">
+								<p class="description">✨ <strong>New to FraudLabs Pro?</strong></p>
+								<p class="description" style="font-size:14px;margin-bottom:10px;">
+									Create a free account and get your API key instantly — no credit card required.
+								</p>
+								<a href="https://www.fraudlabspro.com/subscribe?id=1#woocommerce-pltwzd" target="_blank" style="font-size:14px;margin-top:10px;"><strong>Get Free API Key »</strong></a>
+							</div>
 						</form>
-						<p style="text-align:right;margin-top:15px">
+						<p style="text-align:right;margin-top:15px;margin-bottom:0;">
 							<button id="btn-to-step-2" class="button button-primary" disabled>Next &raquo;</button>
 						</p>
-						<br>
+
 					</div>
 				</div>
 				<div id="modal-step-2" class="fraudlabs-pro-modal">
-					<div class="fraudlabs-pro-modal-content" style="width:400px;height:320px">
+					<div class="fraudlabs-pro-modal-content">
 						<div align="center">
 							<h1>Validate FraudLabs Pro API Key</h1>
 							<table class="setup" width="200">
@@ -1066,8 +1075,8 @@ class WC_FraudLabs_Pro {
 							<div class="line"></div>
 						</div>
 
-						<form style="height:140px">
-							<p id="fraudlabs_pro_key_validation_status"></p>
+						<form style="height:140px;padding-top:6px;">
+							<div id="fraudlabs_pro_key_validation_status"></div>
 						</form>
 						<p style="text-align:right;margin-top:30px">
 							<button id="btn-to-step-1" class="button button-primary" disabled>&laquo; Previous</button>
@@ -1076,11 +1085,23 @@ class WC_FraudLabs_Pro {
 					</div>
 				</div>
 				<div id="modal-step-3" class="fraudlabs-pro-modal">
-					<div class="fraudlabs-pro-modal-content" style="width:400px;height:320px">
-						<div align="center">
-							<img src="' . plugins_url('/assets/images/step-end.png', WC_FLP_DIR) . '" width="300" height="225" align="center"><br>
-							The fraud prevention solution has been enabled. Please review and update the order status, for the Approve, Review and Reject action, at the Settings page.
+					<div class="fraudlabs-pro-modal-content">
+						<div>
+							<div align="center">
+							<img src="' . plugins_url('/assets/images/step-end.png', WC_FLP_DIR) . '" width="300" height="225" align="center">
+							</div>
+							<p style="margin-bottom: 20px;">
+								<span class="dashicons dashicons-yes-alt" style="width:25px;height:25px;font-size:25px;color: #039953;"></span>
+								Fraud protection is now enabled for your store.
+							</p>
+							<p style="margin-bottom:0;"><strong>What to do next?</strong></p>
+							<ul style="margin-top:10px;font-size:15px;">
+								<li>👉 <a href="' . admin_url('admin.php?page=woocommerce-fraudlabs-pro&tab=order') . '">Review and update order settings</a></li>
+								<li>👉 <a href="https://www.fraudlabspro.com/merchant/rule" target="_blank">Customize your fraud validation rules</a></li>
+								<li>👉 <a href="https://www.fraudlabspro.com/resources/categories/woocommerce" target="_blank">Explore tutorials and guides</a></li>
+							</ul>
 						</div>
+
 						<p style="text-align:right;margin-top:15px">
 							<button class="button button-primary" onclick="window.location.href=\'' . admin_url('admin.php?page=woocommerce-fraudlabs-pro') . '\';">Done</button>
 						</p>

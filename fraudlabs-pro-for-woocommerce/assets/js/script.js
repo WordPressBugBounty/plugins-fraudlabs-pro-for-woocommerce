@@ -83,20 +83,20 @@ jQuery(document).ready(function($){
 
 		var $btn = $(this);
 
-		$('#fraudlabs_pro_key_validation_status').html('<span class="dashicons dashicons-update spin"></span> Validating API Key...');
+		$('#fraudlabs_pro_key_validation_status').html('<span class="dashicons dashicons-update spin" style="width:25px;height:25px;font-size:25px;vertical-align:middle;"></span> <span style="font-size:16px;">Validating API Key...</span>');
 		$btn.prop('disabled', true);
 
 		$.post(ajaxurl, { action: 'fraudlabspro_woocommerce_validate_api_key', token: $('#setup_flp_key').val(), __nonce: $('#validate_api_key_nonce').val() }, function(response) {
 			if (response.indexOf("SUCCESS") == 0) {
 				$('#btn-to-step-3').prop('disabled', false);
-				$('#fraudlabs_pro_key_validation_status').html('<span class="dashicons dashicons-yes-alt" style="color:green;"></span> You are currently subscribed to a ' + response.substr(8) + ' Plan.</p></div>');
+				$('#fraudlabs_pro_key_validation_status').html('<div class="success-alert"><span class="dashicons dashicons-yes-alt" style="color:#039953;width:32px;height:32px;font-size:32px;vertical-align:middle;"></span><div class="alert-text-message"> API key validated. You are currently subscribed to a <strong> ' + response.substr(8) + ' Plan</strong>.</div></div>');
 			} else {
 				$('#btn-to-step-1').prop('disabled', false);
-				$('#fraudlabs_pro_key_validation_status').html('<span class="dashicons dashicons-warning" style="color:red;"></span> Invalid API Key. Please click on <strong>&laquo; Previous</strong> button to re-enter the API Key.');
+				$('#fraudlabs_pro_key_validation_status').html('<div class="danger-alert"><span class="dashicons dashicons-warning" style="color:#ff5353;width:32px;height:32px;font-size:32px;vertical-align:middle;"></span><div class="alert-text-message"> Invalid API Key. Please click on the <strong>&laquo;&nbsp;Previous</strong> button to re-enter the API Key.</div></div>');
 			}
 		})
 		.error(function() {
-			$('#fraudlabs_pro_key_validation_status').html('<span class="dashicons dashicons-warning" style="color:red;"></span> Validation skipped. Unable to validate the API Key.');
+			$('#fraudlabs_pro_key_validation_status').html('<div class="danger-alert"><span class="dashicons dashicons-warning" style="color:#ff5353;width:32px;height:32px;font-size:32px;vertical-align:middle;"></span> <div class="alert-text-message">Validation skipped. Unable to validate the API Key.</div></div>');
 			$('#btn-to-step-3').prop('disabled', false);
 		})
 		.always(function() {

@@ -1,11 +1,17 @@
 .dashicons-admin-fraudlabs-pro{-moz-filter:url("data:image/svg+xml;utf8,<svg xmlns=\'https://www.w3.org/2000/svg\'><filter id=\'grayscale\'><feColorMatrix type=\'matrix\' values=\'0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0 0 0 1 0\'/></filter></svg>#grayscale");-o-filter:url("data:image/svg+xml;utf8,<svg xmlns=\'https://www.w3.org/2000/svg\'><filter id=\'grayscale\'><feColorMatrix type=\'matrix\' values=\'0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0 0 0 1 0\'/></filter></svg>#grayscale");-webkit-filter:grayscale(100%);filter:url("data:image/svg+xml;utf8,<svg xmlns=\'https://www.w3.org/2000/svg\'><filter id=\'grayscale\'><feColorMatrix type=\'matrix\' values=\'0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0 0 0 1 0\'/></filter></svg>#grayscale");filter:grayscale(100%);filter:rgb(128, 128, 128);background-image:url("../images/icon.png");background-repeat:no-repeat;background-position:50% 50%;}
 .toplevel_page_woocommerce-fraudlabs-pro:hover .dashicons-admin-fraudlabs-pro,.current.toplevel_page_woocommerce-fraudlabs-pro .dashicons-admin-fraudlabs-pro{-moz-filter:none;-o-filter:none;-webkit-filter:none}
-
-.fraudlabs-pro-modal{display:none;position:fixed;z-index:1;padding-top:100px;left:0;top:0;width:100%;height:100%;overflow:auto;background-color:#000;background-color:rgba(0,0,0,0.4)}
-.fraudlabs-pro-modal-content{background-color:#fefefe;margin:auto;padding:20px;border:1px solid #888;width:50%}
+.fraudlabs-pro-modal {display: none;position: fixed;z-index: 1000;inset: 0;overflow: auto;background: rgba(0, 0, 0, 0.5);padding: 16px;}
+.fraudlabs-pro-modal-content {background-color: #fff;margin: 65px auto auto auto;padding: 20px 25px;border: 1px solid #888;width: 100%;max-width: 500px;box-sizing: border-box;border-radius: 12px;box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);}
+.fraudlabs-pro-modal-content h1{line-height:1.2;}
+.fraudlabs-pro-modal-content p{font-size:15px;}
 .text-danger{color:#cc0000}
-.line{display:block;border-top:1px solid #6162AC;margin-top:-2.8em;margin-bottom:50px}
-.dismiss-button{float:right; border:none; padding:0; background:none; font-size:16px; color:grey;}
+.fraudlabs-pro-modal-content .line{display:block;border-top:1px solid #6162AC;margin-top:-2.8em;margin-bottom:50px}
+.fraudlabs-pro-modal-content .dismiss-button{float:right; border:none; padding:0; background:none; font-size:16px; color:grey;}
 .fraudlabspro-woocommerce-wrapper .nav-tab-active, .fraudlabspro-woocommerce-wrapper .nav-tab-active:focus, .fraudlabspro-woocommerce-wrapper .nav-tab-active:focus:active, .fraudlabspro-woocommerce-wrapper .nav-tab-active:hover {border-bottom-color: #fff;border-bottom:1px solid #ffffff; background: #ffffff; color: #000;}
 .fraudlabspro-woocommece-tab-content{background: #fff; border-top:none;border-bottom: 1px solid #c3c4c7;border-right: 1px solid #c3c4c7;border-left: 1px solid #c3c4c7;box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04); padding: 1px 20px 20px 20px;margin-bottom:30px;}
 .fraudlabspro-woocommece-tab-content .form-table th{padding-left:15px;}
+.fraudlabs-pro-modal-content .help-box {background-color: #f8fafc;border: 1px solid #e2e8f0;border-radius: 8px;padding: 16px;margin-top:25px;margin-bottom: 24px;font-size: 13px;color: #64748b;}
+.fraudlabs-pro-modal-content .button-primary{font-size:14px;padding: 4px 14px;}
+#fraudlabs_pro_key_validation_status .success-alert {font-size: 15px;display: flex;align-items: center;gap: 12px;background-color: #ecfdf5;border: 1px solid #a7f3d0;border-radius: 8px;padding: 15px;margin-bottom: 24px;}
+#fraudlabs_pro_key_validation_status .danger-alert {font-size: 15px;display: flex;align-items: center;gap: 12px;background-color: #ffeaea;border: 1px solid #ffbcbc;border-radius: 8px;padding: 15px; margin-bottom: 24px;}
+#fraudlabs_pro_key_validation_status .alert-text-message {flex: 1;line-height: 1.5;}
