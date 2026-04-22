@@ -750,7 +750,7 @@ class WC_FraudLabs_Pro {
 			'validation_sequence'			=> $this->validation_sequence,
 			'advanced_velocity_screening'	=> ( get_option('wc_settings_woocommerce-fraudlabs-pro_flp_advanced_velocity') == "yes" ) ? 'enabled' : 'disabled',
 			'source'						=> 'woocommerce',
-			'source_version'				=> '2.23.6',
+			'source_version'				=> '2.23.7',
 			'items'							=> $item_sku,
 			'cc_key'						=> $cc_key,
 			'username'						=> $current_username,
@@ -939,7 +939,9 @@ class WC_FraudLabs_Pro {
 				$zap_trigger = json_decode( wp_remote_retrieve_body( $request ) );
 
 				if ( is_object( $zap_trigger ) ) {
-					$target_url = $zap_trigger->target_url;
+					if (isset($zap_trigger->target_url)) {
+						$target_url = $zap_trigger->target_url;
+					}
 				}
 			}
 
