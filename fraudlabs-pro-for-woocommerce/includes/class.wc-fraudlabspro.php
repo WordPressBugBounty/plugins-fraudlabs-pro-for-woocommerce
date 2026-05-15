@@ -720,6 +720,7 @@ class WC_FraudLabs_Pro {
 			'ip_x_forwarded_after'			=> $ip_x_forwarded_after,
 			'first_name'					=> $this->order->get_billing_first_name(),
 			'last_name'						=> $this->order->get_billing_last_name(),
+			'bill_to'						=> $this->order->get_billing_company(),
 			'bill_addr'						=> trim( $this->order->get_billing_address_1() . ' ' . $this->order->get_billing_address_2() ),
 			'bill_city'						=> $this->order->get_billing_city(),
 			'bill_state'					=> $this->order->get_billing_state(),
@@ -750,7 +751,7 @@ class WC_FraudLabs_Pro {
 			'validation_sequence'			=> $this->validation_sequence,
 			'advanced_velocity_screening'	=> ( get_option('wc_settings_woocommerce-fraudlabs-pro_flp_advanced_velocity') == "yes" ) ? 'enabled' : 'disabled',
 			'source'						=> 'woocommerce',
-			'source_version'				=> '2.23.7',
+			'source_version'				=> '2.24.0',
 			'items'							=> $item_sku,
 			'cc_key'						=> $cc_key,
 			'username'						=> $current_username,
@@ -871,6 +872,8 @@ class WC_FraudLabs_Pro {
 			'is_credit_card_blacklist'		=> ($response->credit_card->is_in_blacklist) ? 'Y' : 'N',
 			'is_device_blacklist'			=> ($response->device->is_in_blacklist) ? 'Y' : 'N',
 			'is_user_blacklist'				=> ($response->username->is_in_blacklist) ? 'Y' : 'N',
+			'is_email_disposable'			=> is_null($response->email_address->is_disposable) ? '-' : ($response->email_address->is_disposable ? 'Y' : 'N'),
+			'is_phone_disposable'			=> is_null($response->phone_number->is_disposable) ? '-' : ($response->phone_number->is_disposable ? 'Y' : 'N'),
 			'is_phone_verified'				=> 'No',
 			'fraudlabspro_score'			=> $response->fraudlabspro_score,
 			'fraudlabspro_distribution'		=> '',
@@ -2403,6 +2406,16 @@ class WC_FraudLabs_Pro {
 								<td>
 									<b>Phone Verified</b>
 									<p>'. ( isset( $row['is_phone_verified'] ) ? ( ( is_plugin_active( 'fraudlabs-pro-sms-verification/fraudlabspro-sms-verification.php' ) ) ? esc_html($row['is_phone_verified']) : '- [<a href="https://wordpress.org/plugins/fraudlabs-pro-sms-verification/" target="_blank">FraudLabs Pro SMS Verification Plugin Required</a>]' ) : 'NA [<a href="https://wordpress.org/plugins/fraudlabs-pro-sms-verification/" target="_blank">FraudLabs Pro SMS Verification Plugin Required</a>]' ) .'</p>
+								</td>
+							</tr>
+							<tr>
+								<td>
+									<b>Disposable Email</b>
+									<p>' . $this->parse_fraud_result( $row['is_email_disposable'] ?? '-' ) . '</p>
+								</td>
+								<td>
+									<b>Disposable Phone</b>
+									<p>' . $this->parse_fraud_result( $row['is_phone_disposable'] ?? '-' ) . '</p>
 								</td>
 							</tr>
 							<tr>
