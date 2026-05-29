@@ -751,7 +751,7 @@ class WC_FraudLabs_Pro {
 			'validation_sequence'			=> $this->validation_sequence,
 			'advanced_velocity_screening'	=> ( get_option('wc_settings_woocommerce-fraudlabs-pro_flp_advanced_velocity') == "yes" ) ? 'enabled' : 'disabled',
 			'source'						=> 'woocommerce',
-			'source_version'				=> '2.24.0',
+			'source_version'				=> '2.24.1',
 			'items'							=> $item_sku,
 			'cc_key'						=> $cc_key,
 			'username'						=> $current_username,
@@ -3194,7 +3194,7 @@ class WC_FraudLabs_Pro {
 			SELECT * FROM $table_perfixed
 			WHERE `comment_post_ID` = $order_id
 			AND `comment_type` LIKE 'order_note'
-			AND `comment_content` LIKE 'FraudLabs Pro validation completed%'
+			AND `comment_content` LIKE 'FraudLabs Pro Status:%'
 		");
 
 		if ( count( $results ) > 0 ) {
