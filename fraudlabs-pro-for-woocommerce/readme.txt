@@ -3,8 +3,8 @@ Contributors: fraudlabspro
 Donate link: https://www.fraudlabspro.com
 Tags: chargeback, woocommerce, fraud prevention, fraudlabspro, WooCommerce Fraud Detection, fraud detection, fraud
 Requires at least: 4.6
-Tested up to: 6.9
-Stable tag: 2.24.1
+Tested up to: 7.0
+Stable tag: 2.24.2
 
 Fraud prevention plugin for WooCommerce to minimize payment fraud and avoid chargebacks. With the FraudLabs Pro Micro Plan, you can get 500 free fraud validation credits every month.
 
@@ -97,6 +97,7 @@ For detailed guides and tutorials, please visit our resources below:
 
 == Changelog ==
 
+* 2.24.2 Updated validate_api_key function.
 * 2.24.1 Fixed screened order checking.
 * 2.24.0 Added disposable information in fraud report and supported Bill To in order/screen.
 * 2.23.7 Fixed Undefined property target_url.

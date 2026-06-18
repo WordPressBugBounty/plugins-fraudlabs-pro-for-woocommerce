@@ -751,7 +751,7 @@ class WC_FraudLabs_Pro {
 			'validation_sequence'			=> $this->validation_sequence,
 			'advanced_velocity_screening'	=> ( get_option('wc_settings_woocommerce-fraudlabs-pro_flp_advanced_velocity') == "yes" ) ? 'enabled' : 'disabled',
 			'source'						=> 'woocommerce',
-			'source_version'				=> '2.24.1',
+			'source_version'				=> '2.24.2',
 			'items'							=> $item_sku,
 			'cc_key'						=> $cc_key,
 			'username'						=> $current_username,
@@ -1383,7 +1383,7 @@ class WC_FraudLabs_Pro {
 								<td>
 									<input type="checkbox" name="enable_wc_fraudlabspro_auto_change_status" id="enable_wc_fraudlabspro_auto_change_status"' . ( ( $enable_wc_fraudlabspro_auto_change_status == 'yes' ) ? ' checked' : '' ) . '>
 									<p class="description">
-										Automatically synchronize the WooCommerce Completed order with the FraudLabs Pro Approve status and WooCommerce Cancelled order with the FraudLabs Pro Reject status. Please visit this <a href="https://www.fraudlabspro.com/resources/tutorials/what-is-automated-order-approval-rejection-in-fraudlabs-pro-for-woocommerce-plugin/" target="_blank">article</a> for the detailed explanation.
+										When enabled, syncs WooCommerce order status back to FraudLabs Pro: <strong>Completed</strong> maps to <strong>Approve</strong> and <strong>Cancelled</strong> maps to <strong>Reject</strong>. Please visit this <a href="https://www.fraudlabspro.com/resources/tutorials/what-is-automated-order-approval-rejection-in-fraudlabs-pro-for-woocommerce-plugin/" target="_blank">article</a> for the detailed explanation.
 									</p>
 								</td>
 							</tr>
@@ -2857,8 +2857,10 @@ class WC_FraudLabs_Pro {
 			$apiKey = ( isset( $_POST['token'] ) ) ? sanitize_text_field($_POST['token']) : '';
 
 			$request = wp_remote_get( 'https://api.fraudlabspro.com/v2/plan/result?' . http_build_query( array(
-				'key'		=> $apiKey,
-				'format'	=> 'json'
+				'key'    => $apiKey,
+				'format' => 'json',
+				'store'  => $_SERVER['HTTP_HOST'] ?? '',
+				'src'    => 'WooCommerce',
 			) ) );
 
 			if ( ! is_wp_error( $request ) ) {
@@ -3004,6 +3006,7 @@ class WC_FraudLabs_Pro {
 			update_option( 'wc_settings_woocommerce-fraudlabs-pro_reject_status', 'wc-cancelled' );
 			update_option( 'wc_settings_woocommerce-fraudlabs-pro_reject_failed_order', 'yes' );
 			update_option( 'wc_settings_woocommerce-fraudlabs-pro_expand_report', 'yes' );
+			flush_rewrite_rules();
 		}
 
 		if ( get_option( 'wc_settings_woocommerce-fraudlabs-pro_reject_failed_order' ) == '' ) {
