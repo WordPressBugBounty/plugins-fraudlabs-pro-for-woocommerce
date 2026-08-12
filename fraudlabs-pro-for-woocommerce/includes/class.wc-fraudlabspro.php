@@ -91,6 +91,11 @@ class WC_FraudLabs_Pro {
 		add_action( 'woocommerce_order_status_cancelled', array( $this, 'order_status_cancelled' ) );
 		add_action( 'woocommerce_pre_payment_complete', array( $this, 'pre_payment_complete' ) );
 		add_action( 'woocommerce_payment_complete', array( $this, 'payment_complete' ) );
+
+		add_action( 'woocommerce_save_account_details_errors', array( $this, 'account_update_check' ), 10, 2);
+		add_filter( 'authenticate', array( $this, 'account_login_check' ), 99, 3);
+		add_filter( 'woocommerce_registration_errors', array( $this, 'account_register_check' ), 99, 3);
+		add_action( 'woocommerce_after_save_address_validation', array( $this, 'account_address_update_check' ), 99, 4);
 	}
 
 
@@ -751,7 +756,7 @@ class WC_FraudLabs_Pro {
 			'validation_sequence'			=> $this->validation_sequence,
 			'advanced_velocity_screening'	=> ( get_option('wc_settings_woocommerce-fraudlabs-pro_flp_advanced_velocity') == "yes" ) ? 'enabled' : 'disabled',
 			'source'						=> 'woocommerce',
-			'source_version'				=> '2.24.2',
+			'source_version'				=> '2.25.0',
 			'items'							=> $item_sku,
 			'cc_key'						=> $cc_key,
 			'username'						=> $current_username,
@@ -1666,6 +1671,7 @@ class WC_FraudLabs_Pro {
 			$form_status = '';
 
 			$enable_wc_fraudlabspro = ( isset( $_POST['submit'] ) && isset( $_POST['enable_wc_fraudlabspro'] ) ) ? 'yes' : ( ( ( isset( $_POST['submit'] ) && !isset( $_POST['enable_wc_fraudlabspro'] ) ) ) ? 'no' : $this->get_setting( 'enabled' ) );
+			$enable_ato_fraudlabspro = ( isset( $_POST['submit'] ) && isset( $_POST['enable_ato_fraudlabspro'] ) ) ? 'yes' : ( ( ( isset( $_POST['submit'] ) && !isset( $_POST['enable_ato_fraudlabspro'] ) ) ) ? 'no' : $this->get_setting( 'flp_ato' ) );
 			$api_key = ( isset( $_POST['api_key'] ) ) ? sanitize_text_field(esc_attr($_POST['api_key'])) : $this->get_setting( 'api_key' );
 
 			if ( isset( $_POST['submit'] ) ) {
@@ -1680,14 +1686,38 @@ class WC_FraudLabs_Pro {
 				}
 
 				if ( empty( $form_status ) ) {
+					$flpAto = get_option('wc_settings_woocommerce-fraudlabs-pro_flp_ato');
 					$this->update_setting( 'enabled', $enable_wc_fraudlabspro );
+					$this->update_setting( 'flp_ato', $enable_ato_fraudlabspro );
 					$this->update_setting( 'api_key', $api_key );
+
+					if ($enable_ato_fraudlabspro == 'yes') {
+						if ( $flpAto !== $enable_ato_fraudlabspro ) {
+							$request = wp_remote_get( 'https://api.fraudlabspro.com/v2/plan/result?' . http_build_query( array(
+								'key'    => $api_key,
+								'format' => 'json',
+								'src'    => 'WooCommerce',
+								'ato'    => 'enable',
+							) ) );
+
+							if ( ! is_wp_error( $request ) ) {
+								$response = json_decode( wp_remote_retrieve_body( $request ) );
+
+								if ( is_object( $response ) ) {
+									$atoTok = $response->adv_agent_tok ?? '';
+									if ($atoTok) {
+										$this->update_setting( 'flp_ato_tok', $atoTok );
+									}
+								}
+							}
+						}
+					}
 
 					if ( $api_key !== $this->api_key ) {
 						// Use plan API to get license information
 						$request = wp_remote_get( 'https://api.fraudlabspro.com/v2/plan/result?' . http_build_query( array(
-							'key'		=> $api_key,
-							'format'	=> 'json'
+							'key'    => $api_key,
+							'format' => 'json'
 						) ) );
 
 						if ( ! is_wp_error( $request ) ) {
@@ -1761,6 +1791,15 @@ class WC_FraudLabs_Pro {
 				});
 			</script>';
 
+			$disableAto = '';
+			if (in_array($plan_name, ["FraudLabs Pro Micro", "FraudLabs Pro Mini", "FraudLabs Pro Small"])) {
+				$disableAto = ' disabled';
+				if ($enable_ato_fraudlabspro == 'yes') {
+					$enable_ato_fraudlabspro = 'no';
+					$this->update_setting( 'flp_ato', $enable_ato_fraudlabspro );
+					$this->update_setting( 'flp_ato_tok', '' );
+				}
+			}
 			echo '
 			<div class="wrap">
 				<h1>FraudLabs Pro for WooCommerce</h1>
@@ -1786,6 +1825,14 @@ class WC_FraudLabs_Pro {
 								</th>
 								<td>
 									<input type="checkbox" name="enable_wc_fraudlabspro" id="enable_wc_fraudlabspro"' . ( ( $enable_wc_fraudlabspro == 'yes' ) ? ' checked' : '' ) . '>
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">
+									<label for="enable_ato_fraudlabspro">Enable Account Take Over (ATO) Fraud Prevention</label>
+								</th>
+								<td>
+									<input type="checkbox" name="enable_ato_fraudlabspro" id="enable_ato_fraudlabspro"'. $disableAto . ( ( $enable_ato_fraudlabspro == 'yes' ) ? ' checked' : '' ) . '>
 								</td>
 							</tr>
 							<tr>
@@ -1871,7 +1918,23 @@ class WC_FraudLabs_Pro {
 	 */
 	public function javascript_agent() {
 		if (is_checkout()) {
-		echo '<script>!function(){function t(){var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.src="https://cdn.fraudlabspro.com/s.js";var e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(t,e)}window.attachEvent?window.attachEvent("onload",t):window.addEventListener("load",t,!1)}();</script>';
+			$atoTok = '';
+			if (get_option('wc_settings_woocommerce-fraudlabs-pro_flp_ato') == 'yes' ) {
+				if (!empty(get_option('wc_settings_woocommerce-fraudlabs-pro_flp_ato_tok'))) {
+					$atoTok = '?tok=' . get_option('wc_settings_woocommerce-fraudlabs-pro_flp_ato_tok');
+				}
+			}
+			echo '<script>!function(){function t(){var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.src="https://cdn.fraudlabspro.com/s.js' . $atoTok . '";var e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(t,e)}window.attachEvent?window.attachEvent("onload",t):window.addEventListener("load",t,!1)}();</script>';
+		} elseif (is_account_page()) {
+			if (get_option('wc_settings_woocommerce-fraudlabs-pro_flp_ato') == 'yes' ) {
+				$atoTok = '';
+				if (get_option('wc_settings_woocommerce-fraudlabs-pro_flp_ato') == 'yes' ) {
+					if (!empty(get_option('wc_settings_woocommerce-fraudlabs-pro_flp_ato_tok'))) {
+						$atoTok = '?tok=' . get_option('wc_settings_woocommerce-fraudlabs-pro_flp_ato_tok');
+					}
+				}
+				echo '<script>!function(){function t(){var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.src="https://cdn.fraudlabspro.com/s.js' . $atoTok . '";var e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(t,e)}window.attachEvent?window.attachEvent("onload",t):window.addEventListener("load",t,!1)}();</script>';
+			}
 		}
 	}
 
@@ -2850,6 +2913,198 @@ class WC_FraudLabs_Pro {
 	}
 
 
+	function account_update_check(&$errors, &$user) {
+		if (get_option('wc_settings_woocommerce-fraudlabs-pro_flp_ato') != 'yes') {
+			return;
+		}
+
+		$email = $user->user_email ?? '';
+		$first_name = $user->first_name ?? '';
+		$last_name  = $user->last_name ?? '';
+
+		// WooCommerce customer phone.
+		$customer = new WC_Customer($user->ID);
+		$phone = $customer->get_billing_phone() ?? '';
+
+		$ip = $this->get_client_ip();
+
+		if ($email) {
+			$payload = [
+				'key'          => $this->api_key,
+				'email'        => $email,
+				'ip'           => $ip,
+				'flp_checksum' => $_COOKIE['flp_checksum'] ?? '',
+				'first_name'   => $first_name,
+				'last_name'    => $last_name,
+				'phone'        => $phone,
+			];
+
+			$request = $this->post('https://api.fraudlabspro.com/v2/user/screen', $payload);
+			$response = json_decode($request);
+			if ($response === null) {
+				$this->write_debug_log('FraudLabs Pro user validation has been skipped for account update.');
+				$this->write_debug_log($payload);
+			} else {
+				if (isset($response->user_transaction_status) && $response->user_transaction_status === 'REJECT') {
+					$this->write_debug_log('Account update user validation check REJECTED user: ' . $email);
+					$errors->add('account_update_rejected', __('For security issue, this account update cannot be completed at this time.'));
+					return;
+				}
+			}
+		}
+	}
+
+
+	function account_login_check($user, $username, $password) {
+		if (get_option('wc_settings_woocommerce-fraudlabs-pro_flp_ato') != 'yes') {
+			return;
+		}
+
+		if (is_wp_error($user)) {
+			return $user;
+		}
+
+		if (!($user instanceof WP_User)) {
+			return $user;
+		}
+
+		$email      = $user->user_email ?? '';
+		$first_name = get_user_meta($user->ID, 'first_name', true) ?? '';
+		$last_name  = get_user_meta($user->ID, 'last_name', true) ?? '';
+		$phone      = get_user_meta($user->ID, 'billing_phone', true) ?? '';
+		$ip         = $this->get_client_ip();
+
+		if ($email) {
+			$payload = [
+				'key'          => $this->api_key,
+				'email'        => $email,
+				'ip'           => $ip,
+				'flp_checksum' => $_COOKIE['flp_checksum'] ?? '',
+				'first_name'   => $first_name,
+				'last_name'    => $last_name,
+				'phone'        => $phone,
+			];
+
+			$request = $this->post('https://api.fraudlabspro.com/v2/user/screen', $payload, 3);
+			$response = json_decode($request);
+			if ($response === null) {
+				$this->write_debug_log('FraudLabs Pro user validation has been skipped for account login.');
+				$this->write_debug_log($payload);
+				return $user;
+			} else {
+				if (isset($response->user_transaction_status) && $response->user_transaction_status === 'REJECT') {
+					$this->write_debug_log('Account login user validation check REJECTED user: ' . $email);
+					return new WP_Error('account_login_check_failed', __('We could not verify this login due to security issue. Please contact support if you believe this is an error.'));
+				}
+			}
+		}
+		return $user;
+	}
+
+
+	function account_register_check($errors, $username, $email) {
+		if (get_option('wc_settings_woocommerce-fraudlabs-pro_flp_ato') != 'yes') {
+			return;
+		}
+
+		if (!$errors instanceof WP_Error) {
+			$errors = new WP_Error();
+		}
+
+		$first_name = $last_name = $phone = '';
+		if (isset($_POST['first_name'])) {
+			$first_name = sanitize_text_field(wp_unslash($_POST['first_name']));
+		}
+		if (isset($_POST['last_name'])) {
+			$last_name = sanitize_text_field(wp_unslash($_POST['last_name']));
+		}
+		if (isset($_POST['billing_phone'])) {
+			$phone = sanitize_text_field(wp_unslash($_POST['billing_phone']));
+		} elseif (isset($_POST['phone'])) {
+			$phone = sanitize_text_field(wp_unslash($_POST['phone']));
+		}
+
+		$email = sanitize_email($email) ?? '';
+		$ip = $this->get_client_ip();
+
+		if ($email) {
+			$payload = [
+				'key'          => $this->api_key,
+				'email'        => $email,
+				'ip'           => $ip,
+				'flp_checksum' => $_COOKIE['flp_checksum'] ?? '',
+				'first_name'   => $first_name,
+				'last_name'    => $last_name,
+				'phone'        => $phone,
+			];
+
+			$request = $this->post('https://api.fraudlabspro.com/v2/user/screen', $payload);
+			$response = json_decode($request);
+			if ($response === null) {
+				$this->write_debug_log('FraudLabs Pro user validation has been skipped for account register.');
+				$this->write_debug_log($payload);
+				return $errors;
+			} else {
+				if (isset($response->user_transaction_status) && $response->user_transaction_status === 'REJECT') {
+					$this->write_debug_log('Account register user validation check REJECTED user: ' . $email);
+					$errors->add('account_register_check_failed', __('We could not verify your registration due to security issue. Please contact support if you believe this is an error.'));
+					return $errors;
+				}
+			}
+		}
+		return $errors;
+	}
+
+
+	function account_address_update_check($user_id, $address_type, $address, $customer) {
+		if (get_option('wc_settings_woocommerce-fraudlabs-pro_flp_ato') != 'yes') {
+			return;
+		}
+
+		if (!in_array($address_type, array('billing', 'shipping'), true)) {
+			return;
+		}
+
+		if (wc_notice_count('error') > 0) {
+			return;
+		}
+
+		$email = $customer->get_email();
+		$first_name = $customer->get_first_name();
+		$last_name = $customer->get_last_name();
+		$phone = $customer->get_billing_phone();
+		$ip = $this->get_client_ip();
+
+		if ($email) {
+			$payload = [
+				'key'          => $this->api_key,
+				'email'        => $email,
+				'ip'           => $ip,
+				'flp_checksum' => $_COOKIE['flp_checksum'] ?? '',
+				'first_name'   => $first_name,
+				'last_name'    => $last_name,
+				'phone'        => $phone,
+			];
+
+			$request = $this->post('https://api.fraudlabspro.com/v2/user/screen', $payload);
+			$response = json_decode($request);
+			$addressLabel = ('billing' === $address_type) ? 'billing address' : 'shipping address';
+			if ($response === null) {
+				$this->write_debug_log('FraudLabs Pro user validation has been skipped for ' . $addressLabel . ' update.');
+				$this->write_debug_log($payload);
+				return;
+			} else {
+				if (isset($response->user_transaction_status) && $response->user_transaction_status === 'REJECT') {
+					$this->write_debug_log('The ' . $addressLabel . ' update user validation check REJECTED user: ' . $email);
+					wc_add_notice('We could not verify your ' . $addressLabel . ' update due to security issue. Please contact support if you believe this is an error.', 'error');
+					return;
+				}
+			}
+		}
+		return;
+	}
+
+
 	public function validate_api_key() {
 		check_ajax_referer('validate-api-key', '__nonce');
 
@@ -2859,7 +3114,7 @@ class WC_FraudLabs_Pro {
 			$request = wp_remote_get( 'https://api.fraudlabspro.com/v2/plan/result?' . http_build_query( array(
 				'key'    => $apiKey,
 				'format' => 'json',
-				'store'  => $_SERVER['HTTP_HOST'] ?? '',
+				'store'  => home_url('/') ?? '',
 				'src'    => 'WooCommerce',
 			) ) );
 
@@ -3048,6 +3303,22 @@ class WC_FraudLabs_Pro {
 		return ( isset( $countries[$code] ) ) ? $countries[$code] : NULL;
 	}
 
+	private function get_client_ip() {
+		$ip = '';
+
+		if ( ! empty( $_SERVER['HTTP_CF_CONNECTING_IP'] ) ) {
+			$ip = sanitize_text_field( wp_unslash( $_SERVER['HTTP_CF_CONNECTING_IP'] ) );
+		} elseif ( ! empty( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
+			$forwarded = sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_FOR'] ) );
+			$ips = array_map( 'trim', explode( ',', $forwarded ) );
+			$ip = $ips[0];
+		} elseif ( ! empty( $_SERVER['REMOTE_ADDR'] ) ) {
+			$ip = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
+		}
+
+		return filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : '';
+	}
+
 	/**
 	 * Get plugin settings.
 	 */
@@ -3221,7 +3492,7 @@ class WC_FraudLabs_Pro {
 		return $nonceExpiry;
 	}
 
-	private function post($url, $fields = '') {
+	private function post($url, $fields = '', $timeout = 60) {
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_URL, $url);
 		curl_setopt($ch, CURLOPT_FAILONERROR, false);
@@ -3231,7 +3502,7 @@ class WC_FraudLabs_Pro {
 		curl_setopt($ch, CURLOPT_ENCODING, 'gzip, deflate');
 		curl_setopt($ch, CURLOPT_HTTP_VERSION, '1.1');
 		curl_setopt($ch, CURLOPT_AUTOREFERER, 1);
-		curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+		curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
 
 		if (!empty($fields)) {
 			curl_setopt($ch, CURLOPT_POST, 1);
