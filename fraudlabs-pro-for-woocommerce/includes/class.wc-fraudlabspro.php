@@ -93,7 +93,7 @@ class WC_FraudLabs_Pro {
 		add_action( 'woocommerce_payment_complete', array( $this, 'payment_complete' ) );
 
 		add_action( 'woocommerce_save_account_details_errors', array( $this, 'account_update_check' ), 10, 2);
-		add_filter( 'authenticate', array( $this, 'account_login_check' ), 10, 3);
+		add_filter( 'authenticate', array( $this, 'account_login_check' ), 99, 3);
 		add_filter( 'woocommerce_registration_errors', array( $this, 'account_register_check' ), 10, 3);
 		add_action( 'woocommerce_after_save_address_validation', array( $this, 'account_address_update_check' ), 10, 4);
 	}
@@ -756,7 +756,7 @@ class WC_FraudLabs_Pro {
 			'validation_sequence'			=> $this->validation_sequence,
 			'advanced_velocity_screening'	=> ( get_option('wc_settings_woocommerce-fraudlabs-pro_flp_advanced_velocity') == "yes" ) ? 'enabled' : 'disabled',
 			'source'						=> 'woocommerce',
-			'source_version'				=> '2.25.1',
+			'source_version'				=> '2.25.2',
 			'items'							=> $item_sku,
 			'cc_key'						=> $cc_key,
 			'username'						=> $current_username,
