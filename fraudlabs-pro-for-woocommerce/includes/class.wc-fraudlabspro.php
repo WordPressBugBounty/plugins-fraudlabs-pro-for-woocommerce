@@ -96,6 +96,7 @@ class WC_FraudLabs_Pro {
 		add_filter( 'authenticate', array( $this, 'account_login_check' ), 99, 3);
 		add_filter( 'woocommerce_registration_errors', array( $this, 'account_register_check' ), 10, 3);
 		add_action( 'woocommerce_after_save_address_validation', array( $this, 'account_address_update_check' ), 10, 4);
+		add_filter( 'pre_update_option', array( $this, 'payment_update_check' ), 10, 3);
 	}
 
 
@@ -756,7 +757,7 @@ class WC_FraudLabs_Pro {
 			'validation_sequence'			=> $this->validation_sequence,
 			'advanced_velocity_screening'	=> ( get_option('wc_settings_woocommerce-fraudlabs-pro_flp_advanced_velocity') == "yes" ) ? 'enabled' : 'disabled',
 			'source'						=> 'woocommerce',
-			'source_version'				=> '2.25.2',
+			'source_version'				=> '2.25.3',
 			'items'							=> $item_sku,
 			'cc_key'						=> $cc_key,
 			'username'						=> $current_username,
@@ -2937,6 +2938,7 @@ class WC_FraudLabs_Pro {
 				'first_name'   => $first_name,
 				'last_name'    => $last_name,
 				'phone'        => $phone,
+				'action'       => 'update_account',
 			];
 
 			$request = $this->post('https://api.fraudlabspro.com/v2/user/screen', $payload);
@@ -2983,6 +2985,7 @@ class WC_FraudLabs_Pro {
 				'first_name'   => $first_name,
 				'last_name'    => $last_name,
 				'phone'        => $phone,
+				'action'       => 'login_account',
 			];
 
 			$request = $this->post('https://api.fraudlabspro.com/v2/user/screen', $payload, 3);
@@ -3036,6 +3039,7 @@ class WC_FraudLabs_Pro {
 				'first_name'   => $first_name,
 				'last_name'    => $last_name,
 				'phone'        => $phone,
+				'action'       => 'register_account',
 			];
 
 			$request = $this->post('https://api.fraudlabspro.com/v2/user/screen', $payload);
@@ -3074,6 +3078,7 @@ class WC_FraudLabs_Pro {
 		$last_name = $customer->get_last_name();
 		$phone = $customer->get_billing_phone();
 		$ip = $this->get_client_ip();
+		$addressLabel = ('billing' === $address_type) ? 'billing address' : 'shipping address';
 
 		if ($email) {
 			$payload = [
@@ -3084,11 +3089,11 @@ class WC_FraudLabs_Pro {
 				'first_name'   => $first_name,
 				'last_name'    => $last_name,
 				'phone'        => $phone,
+				'action'       => 'update_' . str_replace(' ', '_', $addressLabel),
 			];
 
 			$request = $this->post('https://api.fraudlabspro.com/v2/user/screen', $payload);
 			$response = json_decode($request);
-			$addressLabel = ('billing' === $address_type) ? 'billing address' : 'shipping address';
 			if ($response === null) {
 				$this->write_debug_log('FraudLabs Pro user validation has been skipped for ' . $addressLabel . ' update.');
 				$this->write_debug_log($payload);
@@ -3102,6 +3107,56 @@ class WC_FraudLabs_Pro {
 			}
 		}
 		return;
+	}
+
+	function payment_update_check($value, $option, $old_value) {
+		if (get_option('wc_settings_woocommerce-fraudlabs-pro_flp_ato') != 'yes') {
+			return $value;
+		}
+
+		$gateways = WC()->payment_gateways()->payment_gateways();
+
+		foreach ($gateways as $gateway) {
+			if ($option !== 'woocommerce_' . $gateway->id . '_settings') {
+				continue;
+			}
+
+			$current_user = wp_get_current_user();
+			$email = $current_user->user_email;
+			$first_name = $current_user->first_name ?: '';
+			$last_name = $current_user->last_name ?: '';
+			$phone = get_user_meta($current_user->ID, 'billing_phone', true) ?: '';
+			$ip = $this->get_client_ip();
+
+			if ($email) {
+				$payload = [
+					'key'          => $this->api_key,
+					'email'        => $email,
+					'ip'           => $ip,
+					'flp_checksum' => $_COOKIE['flp_checksum'] ?? '',
+					'first_name'   => $first_name,
+					'last_name'    => $last_name,
+					'phone'        => $phone,
+					'action'       => 'update_payment',
+				];
+
+				$request = $this->post('https://api.fraudlabspro.com/v2/user/screen', $payload);
+				$response = json_decode($request);
+				if ($response === null) {
+					$this->write_debug_log('FraudLabs Pro user validation has been skipped for payment gateway ' . $gateway->id . ' update.');
+					$this->write_debug_log($payload);
+					return $value;
+				} else {
+					if (isset($response->user_transaction_status) && $response->user_transaction_status === 'REJECT') {
+						$this->write_debug_log('The payment gateway ' . $gateway->id . ' update user validation check REJECTED user: ' . $email);
+						WC_Admin_Settings::add_error(__('We could not verify your payment gateway ' . $gateway->id . ' update due to security issue. Please contact support if you believe this is an error.'));
+						return $old_value;
+					}
+				}
+			}
+		}
+
+		return $value;
 	}
 
 
@@ -3202,10 +3257,8 @@ class WC_FraudLabs_Pro {
 				'<strong>' . __('FraudLabs Pro for WooCommerce', $plugin_name) . '</strong>',
 				'<a href="https://wordpress.org/support/plugin/' . $plugin_name . '/reviews/#new-post" target="_blank">&#9733;&#9733;&#9733;&#9733;&#9733;</a>'
 			);
-		}
-
-		if ($current_screen->id == 'plugins') {
-			return $footer_text . '
+		} elseif ($current_screen->id == 'plugins') {
+			$footer_text . '
 			<div id="fraudlabs-pro-for-woocommerce-feedback-modal" class="hidden" style="max-width:800px">
 				<span id="fraudlabs-pro-for-woocommerce-feedback-response"></span>
 				<p>
@@ -3243,6 +3296,16 @@ class WC_FraudLabs_Pro {
 				</p>
 				<input type="hidden" id="fraudlabs_pro_woocommerce_feedback_nonce" value="' . wp_create_nonce('submit-feedback') . '">
 			</div>';
+		} elseif (isset($_GET['page'], $_GET['tab'] ) && 'wc-settings' === $_GET['page'] && 'checkout' === $_GET['tab']) {
+			if (get_option('wc_settings_woocommerce-fraudlabs-pro_flp_ato') == 'yes' ) {
+				$atoTok = '';
+				if (get_option('wc_settings_woocommerce-fraudlabs-pro_flp_ato') == 'yes' ) {
+					if (!empty(get_option('wc_settings_woocommerce-fraudlabs-pro_flp_ato_tok'))) {
+						$atoTok = '?tok=' . get_option('wc_settings_woocommerce-fraudlabs-pro_flp_ato_tok');
+					}
+				}
+				echo '<script>!function(){function t(){var t=document.createElement("script");t.type="text/javascript",t.async=!0,t.src="https://cdn.fraudlabspro.com/s.js' . $atoTok . '";var e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(t,e)}window.attachEvent?window.attachEvent("onload",t):window.addEventListener("load",t,!1)}();</script>';
+			}
 		}
 
 		return $footer_text;
