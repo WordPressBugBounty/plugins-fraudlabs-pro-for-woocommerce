@@ -757,7 +757,7 @@ class WC_FraudLabs_Pro {
 			'validation_sequence'			=> $this->validation_sequence,
 			'advanced_velocity_screening'	=> ( get_option('wc_settings_woocommerce-fraudlabs-pro_flp_advanced_velocity') == "yes" ) ? 'enabled' : 'disabled',
 			'source'						=> 'woocommerce',
-			'source_version'				=> '2.25.3',
+			'source_version'				=> '2.25.4',
 			'items'							=> $item_sku,
 			'cc_key'						=> $cc_key,
 			'username'						=> $current_username,
@@ -2938,6 +2938,7 @@ class WC_FraudLabs_Pro {
 				'first_name'   => $first_name,
 				'last_name'    => $last_name,
 				'phone'        => $phone,
+				'landing_page' => 'edit-account',
 				'action'       => 'update_account',
 			];
 
@@ -2985,6 +2986,7 @@ class WC_FraudLabs_Pro {
 				'first_name'   => $first_name,
 				'last_name'    => $last_name,
 				'phone'        => $phone,
+				'landing_page' => $_SERVER['REQUEST_URI'] ? basename(rtrim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/')) : '',
 				'action'       => 'login_account',
 			];
 
@@ -3039,6 +3041,7 @@ class WC_FraudLabs_Pro {
 				'first_name'   => $first_name,
 				'last_name'    => $last_name,
 				'phone'        => $phone,
+				'landing_page' => $_SERVER['REQUEST_URI'] ? basename(rtrim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/')) : '',
 				'action'       => 'register_account',
 			];
 
@@ -3089,6 +3092,7 @@ class WC_FraudLabs_Pro {
 				'first_name'   => $first_name,
 				'last_name'    => $last_name,
 				'phone'        => $phone,
+				'landing_page' => $address_type,
 				'action'       => 'update_' . str_replace(' ', '_', $addressLabel),
 			];
 
@@ -3137,6 +3141,7 @@ class WC_FraudLabs_Pro {
 					'first_name'   => $first_name,
 					'last_name'    => $last_name,
 					'phone'        => $phone,
+					'landing_page' => 'payment-gateways',
 					'action'       => 'update_payment',
 				];
 
