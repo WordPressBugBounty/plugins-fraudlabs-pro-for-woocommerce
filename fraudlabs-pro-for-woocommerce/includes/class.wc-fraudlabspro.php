@@ -703,6 +703,14 @@ class WC_FraudLabs_Pro {
 
 		$flpCallbackNonce = $this->create_custom_nonce('check-flp-callback');
 
+		$is_local_pickup = false;
+		foreach ( $this->order->get_shipping_methods() as $shipping_method ) {
+			if ( in_array( $shipping_method->get_method_id(), ['local_pickup', 'pickup_location'], true ) ) {
+				$is_local_pickup = true;
+				break;
+			}
+		}
+
 		$queries = [
 			'key'							=> $this->api_key,
 			'format'						=> 'json',
@@ -733,13 +741,7 @@ class WC_FraudLabs_Pro {
 			'bill_zip_code'					=> $this->order->get_billing_postcode(),
 			'bill_country'					=> $bill_country,
 			'user_phone'					=> $this->order->get_billing_phone(),
-			'ship_first_name'				=> $this->order->get_shipping_first_name(),
-			'ship_last_name'				=> $this->order->get_shipping_last_name(),
-			'ship_addr'						=> trim( $this->order->get_shipping_address_1() . ' ' . $this->order->get_shipping_address_2() ),
-			'ship_city'						=> $this->order->get_shipping_city(),
-			'ship_state'					=> $this->order->get_shipping_state(),
-			'ship_zip_code'					=> $this->order->get_shipping_postcode(),
-			'ship_country'					=> $ship_country,
+			'ship_method'					=> $is_local_pickup ? 'local_pickup' : 'standard_delivery',
 			'email'							=> $this->order->get_billing_email(),
 			'email_domain'					=> substr( $this->order->get_billing_email(), strpos( $this->order->get_billing_email(), '@' ) + 1 ),
 			'email_hash'					=> $this->hash_string( $this->order->get_billing_email() ),
@@ -757,7 +759,7 @@ class WC_FraudLabs_Pro {
 			'validation_sequence'			=> $this->validation_sequence,
 			'advanced_velocity_screening'	=> ( get_option('wc_settings_woocommerce-fraudlabs-pro_flp_advanced_velocity') == "yes" ) ? 'enabled' : 'disabled',
 			'source'						=> 'woocommerce',
-			'source_version'				=> '2.25.4',
+			'source_version'				=> '2.26.0',
 			'items'							=> $item_sku,
 			'cc_key'						=> $cc_key,
 			'username'						=> $current_username,
@@ -771,6 +773,18 @@ class WC_FraudLabs_Pro {
 			'reject_wc_failed_order'		=> (get_option('wc_settings_woocommerce-fraudlabs-pro_reject_failed_order') == 'yes') ? true : false,
 			'callback_nonce'				=> $flpCallbackNonce,
 		];
+
+		if (!$is_local_pickup) {
+			$queries = array_merge($queries, [
+				'ship_first_name'	=> $this->order->get_shipping_first_name(),
+				'ship_last_name'	=> $this->order->get_shipping_last_name(),
+				'ship_addr'			=> trim( $this->order->get_shipping_address_1() . ' ' . $this->order->get_shipping_address_2() ),
+				'ship_city'			=> $this->order->get_shipping_city(),
+				'ship_state'		=> $this->order->get_shipping_state(),
+				'ship_zip_code'		=> $this->order->get_shipping_postcode(),
+				'ship_country'		=> $ship_country,
+			]);
+		}
 
 		if ( isset( $_SESSION['flp_avs'] ) ) {
 			unset ($_SESSION['flp_avs']);
